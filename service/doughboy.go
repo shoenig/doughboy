@@ -1,78 +1,64 @@
 package service
 
 import (
-	"fmt"
-	"net/http"
 	"os"
 
+	"github.com/hashicorp/consul/api"
 	"github.com/pkg/errors"
 
 	"gophers.dev/cmds/doughboy/config"
-	"gophers.dev/cmds/doughboy/sigs"
-
 	"gophers.dev/pkgs/loggy"
-
-	"oss.indeed.com/go/libtime"
 )
 
-type DoughboyService struct {
+type DoughBoy struct {
 	configuration *config.Configuration
 	log           loggy.Logger
+
+	consul *api.Client
 }
 
-func New(args []string) (*DoughboyService, error) {
+func New(args []string) (*DoughBoy, error) {
 	if len(args) != 1 {
 		return nil, errors.New("config file required")
 	}
 
-	log := loggy.New("doughboy")
+	logger := loggy.New("doughboy")
 
 	c, err := config.LoadHCL(os.Args[1])
 	if err != nil {
 		return nil, errors.Wrap(err, "malformed config file")
 	}
 
-	c.Log(log)
+	c.Log(logger)
 
-	return &DoughboyService{
+	return &DoughBoy{
 		configuration: c,
-		log:           log,
+		log:           logger,
 	}, nil
 }
 
-func (ds *DoughboyService) Start() error {
-	ds.log.Infof("starting up!")
+func (db *DoughBoy) Start() error {
+	db.log.Infof("starting up, pid: %d", os.Getpid())
 
-	address := fmt.Sprintf(
-		"%s:%d",
-		ds.configuration.Service.Address,
-		ds.configuration.Service.Port,
-	)
-	ds.log.Infof("will listen at %s", address)
-
-	pid := os.Getpid()
-	ds.log.Infof("pid: %d", pid)
-
-	signals, err := sigs.Lookup(ds.configuration.Signals...)
-	if err != nil {
-		return err
+	for _, f := range []initializer{
+		initSigs,
+		initConsul,
+		initNativeResponder,
+		initNativeRequester,
+		initClassicResponder,
+		initClassicRequester,
+	} {
+		if err := f(db); err != nil {
+			return errors.Wrap(err, "initialization failed")
+		}
 	}
 
-	sigWatcher := sigs.New(libtime.SystemClock())
-	go sigWatcher.Watch(signals...)
-
-	if err := http.ListenAndServe(address, makeAPI(loggy.New("api"))); err != nil {
-		ds.log.Errorf("failed to listen and serve: %v", err)
-		return errors.Wrap(err, "unable to listen and serve")
-	}
-
-	return errors.New("stopped listening (!)")
+	return nil
 }
 
-func makeAPI(log loggy.Logger) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		msg := fmt.Sprintf("request from %s for %s", r.RemoteAddr, r.RequestURI)
-		log.Infof(msg)
-		_, _ = fmt.Fprintf(w, msg+"\n")
+func (db *DoughBoy) Wait() {
+	select {
+	// wait forever
+	// we could add a shutdown signal perhaps
 	}
 }
