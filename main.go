@@ -21,4 +21,6 @@ func main() {
 		log.Errorf("program stopped: %v", err)
 		os.Exit(1)
 	}
+
+	doughboy.Wait()
 }
