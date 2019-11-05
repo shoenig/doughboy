@@ -101,12 +101,7 @@ func (r *Requester) lookupUpstream(destination string) (string, error) {
 		return "", errors.Errorf("failed to lookup %q", r.name)
 	}
 
-	fmt.Printf("service[0]: %#v\n", services[0])
-	fmt.Printf("service[0].ServiceProxy: %#v\n", services[0].ServiceProxy)
-
 	for _, upstream := range services[0].ServiceProxy.Upstreams {
-		fmt.Printf("upstream: %#v\n", upstream)
-
 		if upstream.DestinationName == destination {
 			return fmt.Sprintf("http://%s:%d/classic/responder/poke",
 				services[0].ServiceProxy.LocalServiceAddress,
