@@ -86,7 +86,7 @@ func initClassicRequester(db *DoughBoy) error {
 		db.log.Tracef("initializing classic echo service requester")
 		r := classic.NewRequester(
 			db.configuration.Echo.Classic.Client,
-			db.consul,
+			// db.consul, // not used anymore (network namespaces grr)
 		)
 		if err := r.Open(); err != nil {
 			return errors.Wrap(err, "cannot start classic requester")

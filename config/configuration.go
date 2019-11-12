@@ -19,6 +19,11 @@ type Server struct {
 	Port   int    `hcl:"port"`
 }
 
+type ClassicServer struct {
+	Server
+	UpstreamPort int `hcl:"upstream_port"`
+}
+
 func (s Server) String() string {
 	return fmt.Sprintf(
 		"(enabled: %t, bind: %s, port %d)",
@@ -40,17 +45,17 @@ func (c Client) String() string {
 type Echo struct {
 	Native struct {
 		Server Server `hcl:"server"`
-		Client Client `hcl:"client"` // todo: also listen for HCs
+		Client Client `hcl:"client"`
 	} `hcl:"native"`
 	Classic struct {
-		Server Server `hcl:"server"`
-		Client Server `hcl:"client"`
+		Server Server        `hcl:"server"`
+		Client ClassicServer `hcl:"client"`
 	} `hcl:"classic"`
 }
 
 type Configuration struct {
 	Signals []string `hcl:"signals"`
-	Consul  Consul   `hcl:"consul"`
+	Consul  Consul   `hcl:"consul"` // cannot be used by classic (for now?)
 	Echo    Echo     `hcl:"echo"`
 }
 

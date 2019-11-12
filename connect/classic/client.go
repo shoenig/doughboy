@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/hashicorp/consul/api"
 	clean "github.com/hashicorp/go-cleanhttp"
 	"github.com/pkg/errors"
 
@@ -19,20 +18,16 @@ import (
 )
 
 type Requester struct {
-	name   string
-	config config.Server
-	consul *api.Client
+	config config.ClassicServer
 	log    loggy.Logger
 
 	lock      sync.Mutex
-	server    *http.Server // serve HC
+	server    *http.Server // serve http HC
 	shutdownC chan bool
 }
 
-func NewRequester(config config.Server, consul *api.Client) *Requester {
+func NewRequester(config config.ClassicServer) *Requester {
 	return &Requester{
-		name:   "doughboy-classic-requester",
-		consul: consul,
 		config: config,
 		log:    loggy.New("classic-requester"),
 	}
@@ -53,7 +48,7 @@ func (r *Requester) Open() error {
 	}
 	r.shutdownC = make(chan bool)
 
-	client := clean.DefaultClient()
+	client := clean.DefaultClient() // used to query upstream via connect
 	client.Timeout = 1 * time.Second
 
 	r.shutdownC = make(chan bool)
@@ -86,31 +81,41 @@ func (r *Requester) Open() error {
 	return nil
 }
 
-func (r *Requester) lookupUpstream(destination string) (string, error) {
-	sidecar := r.name + "-sidecar-proxy"
+// Using Consul for service discovery of the upstream is not going to work from
+// inside the network namespace that we create for ourselves. Instead we will just
+// have to pass in the local bind port, as configured in the nomad job file.
+//
+//func (r *Requester) lookupUpstream(destination string) (string, error) {
+//	sidecar := r.name + "-sidecar-proxy"
+//
+//	services, _, err := r.consul.Catalog().Service(sidecar, "", nil)
+//	if err != nil {
+//		return "", err
+//	}
+//
+//	// we assume this doughboy-classic-requester is the only one registered
+//	// a more complete implementation needs to reference the specific service ID
+//	// of this running doughboy instance
+//	if len(services) != 1 {
+//		return "", errors.Errorf("failed to lookup %q", r.name)
+//	}
+//
+//	for _, upstream := range services[0].ServiceProxy.Upstreams {
+//		if upstream.DestinationName == destination {
+//			return fmt.Sprintf("http://%s:%d/classic/responder/poke",
+//				services[0].ServiceProxy.LocalServiceAddress,
+//				services[0].ServiceProxy.Upstreams[0].LocalBindPort,
+//			), nil
+//		}
+//	}
+//
+//	return "", errors.Errorf("no upstream of name %q", destination)
+//}
 
-	services, _, err := r.consul.Catalog().Service(sidecar, "", nil)
-	if err != nil {
-		return "", err
-	}
-
-	// we assume this doughboy-classic-requester is the only one registered
-	// a more complete implementation needs to reference the specific service ID
-	// of this running doughboy instance
-	if len(services) != 1 {
-		return "", errors.Errorf("failed to lookup %q", r.name)
-	}
-
-	for _, upstream := range services[0].ServiceProxy.Upstreams {
-		if upstream.DestinationName == destination {
-			return fmt.Sprintf("http://%s:%d/classic/responder/poke",
-				services[0].ServiceProxy.LocalServiceAddress,
-				services[0].ServiceProxy.Upstreams[0].LocalBindPort,
-			), nil
-		}
-	}
-
-	return "", errors.Errorf("no upstream of name %q", destination)
+// Just use the local bind port passed in through configuration, which is also
+// configured in the nomad job file.
+func (r *Requester) lookupUpstream(_ string) (string, error) {
+	return fmt.Sprintf("127.0.0.1:%d", r.config.UpstreamPort), nil
 }
 
 func (r *Requester) doRequest(client *http.Client) {
