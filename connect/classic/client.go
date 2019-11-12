@@ -115,7 +115,7 @@ func (r *Requester) Open() error {
 // Just use the local bind port passed in through configuration, which is also
 // configured in the nomad job file.
 func (r *Requester) lookupUpstream(_ string) (string, error) {
-	return fmt.Sprintf("127.0.0.1:%d", r.config.UpstreamPort), nil
+	return fmt.Sprintf("http://127.0.0.1:%d", r.config.UpstreamPort), nil
 }
 
 func (r *Requester) doRequest(client *http.Client) {
