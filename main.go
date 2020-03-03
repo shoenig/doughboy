@@ -23,4 +23,5 @@ func main() {
 	}
 
 	doughboy.Wait()
+	log.Infof("exiting.")
 }

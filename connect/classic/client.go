@@ -51,9 +51,8 @@ func (r *Requester) Open() error {
 	client := clean.DefaultClient() // used to query upstream via connect
 	client.Timeout = 1 * time.Second
 
-	r.shutdownC = make(chan bool)
-
 	go func() {
+		r.log.Infof("listen and serve beginning now ...")
 		if err := r.server.ListenAndServe(); err != nil {
 			panic(err)
 		}
@@ -78,6 +77,7 @@ func (r *Requester) Open() error {
 		}
 	}()
 
+	r.log.Infof("requester is running ...")
 	return nil
 }
 
