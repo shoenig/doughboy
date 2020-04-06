@@ -22,6 +22,7 @@ type Requester struct {
 	log    loggy.Logger
 
 	lock      sync.Mutex
+	client    *http.Client // makes HTTP requests (through Connect to upstream)
 	server    *http.Server // serve http HC
 	shutdownC chan bool
 }
@@ -48,8 +49,8 @@ func (r *Requester) Open() error {
 	}
 	r.shutdownC = make(chan bool)
 
-	client := clean.DefaultClient() // used to query upstream via connect
-	client.Timeout = 1 * time.Second
+	r.client = clean.DefaultClient() // used to query upstream via connect
+	r.client.Timeout = 1 * time.Second
 
 	go func() {
 		r.log.Infof("listen and serve beginning now ...")
@@ -66,13 +67,13 @@ func (r *Requester) Open() error {
 
 			case <-r.shutdownC:
 				r.log.Infof("shutting down")
-				_ = r.server.Close()
+				ignore.Close(r.server)
 				r.server = nil
 				r.shutdownC = nil
 				return
 
 			case <-time.After(3 * time.Second):
-				r.doRequest(client)
+				r.doRequest()
 			}
 		}
 	}()
@@ -121,27 +122,28 @@ func (r *Requester) lookupUpstream(_ string) (string, error) {
 	), nil
 }
 
-func (r *Requester) doRequest(client *http.Client) {
+func (r *Requester) doRequest() (int, error) {
 	upstreamURL, err := r.lookupUpstream("doughboy-classic-responder")
 	if err != nil {
 		r.log.Errorf("request failed: %v", err)
-		return
+		return http.StatusInternalServerError, err
 	}
 
-	response, err := client.Get(upstreamURL)
+	response, err := r.client.Get(upstreamURL)
 	if err != nil {
 		r.log.Errorf("do GET request failed: %v", err)
-		return
+		return http.StatusInternalServerError, err
 	}
 	defer ignore.Drain(response.Body)
 
 	body, err := ioutil.ReadAll(response.Body)
 	if err != nil {
 		r.log.Errorf("unable to read response: %v", err)
-		return
+		return http.StatusInternalServerError, err
 	}
 
 	r.log.Infof("got response: %s", string(body))
+	return response.StatusCode, nil
 }
 
 func (r *Requester) Close() error {
@@ -161,5 +163,6 @@ func (r *Requester) Close() error {
 func (r *Requester) mux() http.Handler {
 	router := mux.NewRouter()
 	router.Handle("/classic/requester/health", common.HealthCheck(r.log))
+	router.Handle("/classic/requester/health/upstream", common.UpstreamCheck(r.doRequest, r.log))
 	return router
 }
