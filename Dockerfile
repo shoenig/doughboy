@@ -15,8 +15,12 @@ ENTRYPOINT ["/opt/doughboy"]
 
 
 ## Example Build
-#     docker build -t shoenig/doughboy .
+#     docker build -t shoenig/doughboy:test .
 
 ## Example launch
 #     docker run --rm -v $(pwd)/hack:/hack:ro shoenig/doughboy /hack/classic-responder.hcl
 
+## Example Publish
+#     docker build -t shoenig/doughboy:v0.0.0 .
+#     docker login
+#     docker push shoenig/doughboy:v0.0.0
