@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"fmt"
 
 	"gophers.dev/cmds/doughboy/service"
 
@@ -21,6 +22,8 @@ func main() {
 		log.Errorf("program stopped: %v", err)
 		os.Exit(1)
 	}
+
+	fmt.Println("hi")
 
 	doughboy.Wait()
 	log.Infof("exiting.")
