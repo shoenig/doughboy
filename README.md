@@ -50,6 +50,17 @@ Notice the `doughboy` process intercepts the interrupt without dying
 
 See [example.hcl](hack/example.hcl) for an example configuration file.
 
+# Publishing
+
+Docker builds for linux/amd64 and linux/arm64 are published automatically
+on pushing a version tag.
+
+Use [taggit] to publish a version tag, e.g.
+
+```
+taggit patch
+```
+
 # Contributing
 
 The `gophers.dev/cmds/doughboy` module is always improving with new features
