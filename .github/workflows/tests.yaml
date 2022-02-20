@@ -1,4 +1,4 @@
-name: tests
+name: Run CI Tests
 on: [push]
 env:
   GOBIN: /opt/bin
